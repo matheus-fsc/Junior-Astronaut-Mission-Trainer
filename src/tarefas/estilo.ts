@@ -6,6 +6,7 @@ import { movimentoReduzido } from '../video';
 import { chaveIcone, resolverIcone, type IconeJogo } from '../dados/icones';
 import { tocarSfx } from '../sfx';
 import { dispositivoMovel } from '../mobile';
+import bandeiraMarte from '../dados/bandeira_marte.json';
 
 export const CONTORNO = 0x1e293b;
 export const CORES_FESTA = [0xfde047, 0x4ade80, 0xf472b6, 0x60a5fa, 0xfb923c];
@@ -255,7 +256,9 @@ export function criarIconeRadiacao(cena: Phaser.Scene, x: number, y: number, tam
   return criarIconeJogo(cena, x, y, 'radiation', tamanho);
 }
 
-export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: IconeJogo, rotulo: string, cor: number) {
+// With `chegada` the progress fill is a checkered finish line and a waving Mars flag rides on the tip of
+// the progress (the rocket's progress: the race to Mars).
+export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: IconeJogo, rotulo: string, cor: number, chegada = false) {
   // Enlarge every inner measurement together, capped by the available column and row.
   const ampliacao = Math.max(1, Math.min(1.2, b.w / (220 * u), b.h / (44 * u)));
   const unidade = u * ampliacao;
@@ -275,17 +278,91 @@ export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: I
   selo.texto.setFontSize(px(11));
   label.setScale(Math.min(1, (fim - seloW - px(6) - coluna) / label.width));
   const trilhoH = px(12), trilhoY = Math.round(alto * 0.74), trilhoW = fim - coluna;
-  const trilho = cena.add.graphics().fillStyle(0x0b1a4a).fillRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2)
+  const trilho: Phaser.GameObjects.Graphics = cena.add.graphics().fillStyle(0x0b1a4a).fillRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2)
     .lineStyle(px(2), 0xffffff).strokeRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2);
   const preenchimento = cena.add.graphics();
   caixa.add([fundo, simbolo, label, selo.caixa, trilho, preenchimento]);
-  return { caixa, atualizar: (valor: number, corAtual = cor) => {
+  // The finish line: the fill itself is a black and white checkerboard growing as the rocket gets
+  // built, over the plain navy track. A Mars flag rides on the tip of the fill: at 0% only its mast stands in the
+  // left corner; with the first progress the cloth is hoisted to the top and waves.
+  let bandeira: { mastro: Phaser.GameObjects.Graphics; pano?: Phaser.GameObjects.Sprite; x: number; hasteada: boolean } | null = null;
+  const borda0 = px(2), alto0 = trilhoH - 2 * borda0;
+  const mastroH = px(12), mastroBase = trilhoY + Math.round(trilhoH / 2) - borda0, mastroTopo = trilhoY - Math.round(trilhoH / 2) - mastroH;
+  const panoH = Math.max(6, px(8)), escalaPano = panoH / bandeiraMarte.alturaPano;
+  if (chegada) {
+    const mastro = cena.add.graphics();
+    let pano: Phaser.GameObjects.Sprite | undefined;
+    if (cena.textures.exists('bandeira_marte_hud')) {
+      if (!cena.anims.exists('bandeira_marte_onda')) {
+        cena.anims.create({ key: 'bandeira_marte_onda', frames: cena.anims.generateFrameNumbers('bandeira_marte_hud', { start: 0, end: bandeiraMarte.quadros - 1 }), frameRate: 14, repeat: -1 });
+      }
+      pano = cena.add.sprite(0, mastroBase, 'bandeira_marte_hud', 0).setScale(escalaPano)
+        .setOrigin(bandeiraMarte.ancora[0] / bandeiraMarte.w, bandeiraMarte.ancora[1] / bandeiraMarte.h).setVisible(false);
+      if (!movimentoReduzido()) pano.play('bandeira_marte_onda');
+    }
+    bandeira = { mastro, pano, x: coluna + borda0, hasteada: false };
+    // In front of the percentage badge (the flag reaches it near the end), behind the label text.
+    caixa.add(pano ? [mastro, pano] : [mastro]);
+    caixa.bringToTop(label);
+  }
+  const moverBandeira = (cheio: number) => {
+    if (!bandeira) return;
+    const b = bandeira;
+    // The mast stands on the tip of the fill (a little inside the rounded start at 0%).
+    b.x = coluna + borda0 + Math.max(alto0 / 2, cheio - px(1));
+    const larguraPano = (bandeiraMarte.w - 2 * bandeiraMarte.ancora[0]) * escalaPano;
+    // Under the label text or the badge the mast is shorter: the cloth flies in the gap between the
+    // header and the track instead of hiding behind the word or covering the number.
+    const fimTexto = coluna + label.displayWidth + px(3);
+    const sobSelo = b.x + larguraPano > fim - seloW - px(2);
+    const sobTexto = b.x - px(3) < fimTexto;
+    const topo = sobSelo || sobTexto ? Math.max(mastroTopo, cabecalhoY + Math.round(seloH / 2) + px(1)) : mastroTopo;
+    b.mastro.clear().lineStyle(Math.max(2, px(3)), 0x0b1a4a).lineBetween(b.x, mastroBase, b.x, topo - px(1))
+      .lineStyle(Math.max(1, px(1.4)), 0xffffff).lineBetween(b.x, mastroBase, b.x, topo)
+      .fillStyle(0xfde047).fillCircle(b.x, topo - px(1), Math.max(1.5, px(2)));
+    if (!b.pano) return;
+    // Near the end the cloth would cross the panel's border: it turns to fly on the inner side.
+    const virar = b.x + larguraPano > inicio + largura - px(6);
+    if (b.pano.flipX !== virar) {
+      b.pano.setFlipX(virar).setOrigin(virar ? 1 - bandeiraMarte.ancora[0] / bandeiraMarte.w : bandeiraMarte.ancora[0] / bandeiraMarte.w, bandeiraMarte.ancora[1] / bandeiraMarte.h);
+    }
+    b.pano.x = b.x;
+    const subir = cheio > 0;
+    if (subir === b.hasteada) { if (subir && !cena.tweens.isTweening(b.pano)) b.pano.setY(topo); return; }
+    b.hasteada = subir;
+    cena.tweens.killTweensOf(b.pano);
+    if (subir) {
+      b.pano.setVisible(true);
+      if (movimentoReduzido()) b.pano.setY(topo).setAlpha(1);
+      else {
+        b.pano.setY(mastroBase - panoH).setAlpha(0);
+        cena.tweens.add({ targets: b.pano, y: topo, alpha: 1, duration: 1100, ease: 'Cubic.easeOut' });
+      }
+    } else b.pano.setVisible(false).setY(mastroBase);
+  };
+  // `aviso` replaces the label (the finished rocket waiting for launch day).
+  const ajustarRotulo = () => label.setScale(1).setScale(Math.min(1, (fim - seloW - px(6) - coluna) / label.width));
+  return { caixa, atualizar: (valor: number, corAtual = cor, aviso?: string) => {
+    const texto = aviso ?? rotulo;
+    if (label.text !== texto) { label.setText(texto).setColor(aviso ? '#86efac' : '#ffffff'); ajustarRotulo(); }
     const fracao = Math.max(0, Math.min(100, valor)) / 100;
     const borda = px(2), a = trilhoH - 2 * borda, util = trilhoW - 2 * borda;
     const cheio = fracao > 0 ? Math.min(util, Math.max(a, Math.round(util * fracao))) : 0;
     preenchimento.clear();
-    if (cheio) preenchimento.fillStyle(corAtual).fillRoundedRect(coluna + borda, trilhoY - a / 2, cheio, a, a / 2)
+    if (cheio && chegada) {
+      // The progress itself is the finish line: black and white checks, two rows, over a white base
+      // (rounded ends stay white). Ready to launch, the white turns green.
+      const q = Math.max(2, a / 2), x0 = coluna + borda, y0 = trilhoY - a / 2;
+      preenchimento.fillStyle(aviso ? 0x4ade80 : 0xffffff).fillRoundedRect(x0, y0, cheio, a, a / 2);
+      for (let c = 0; c * q < cheio; c++) for (let l = 0; l < 2; l++) {
+        if ((c + l) % 2 === 0) continue;
+        const sx = x0 + c * q, w = Math.min(q, cheio - c * q), meio = sx + w / 2 - x0;
+        if (meio < a / 2 || meio > cheio - a / 2) continue;
+        preenchimento.fillStyle(0x111827).fillRect(sx, y0 + l * q, w, q);
+      }
+    } else if (cheio) preenchimento.fillStyle(corAtual).fillRoundedRect(coluna + borda, trilhoY - a / 2, cheio, a, a / 2)
       .fillStyle(0xffffff, 0.3).fillRoundedRect(coluna + borda + a / 3, trilhoY - a / 2 + 1, Math.max(0, cheio - a * 2 / 3), a * 0.3, a * 0.15);
+    moverBandeira(cheio);
     selo.texto.setText(`${Math.round(valor)}%`);
   } };
 }
@@ -303,7 +380,8 @@ export function criarIndicadorCircular(cena: Phaser.Scene, b: Caixa, u: number, 
     fontStyle: '700', stroke: '#0b1a4a', strokeThickness: 2,
   })).setOrigin(0.5);
   caixa.add([anel, simbolo, numero, legenda]);
-  return { caixa, atualizar: (valor: number, corAtual = cor) => {
+  return { caixa, atualizar: (valor: number, corAtual = cor, aviso?: string) => {
+    if (legenda.text !== (aviso ?? rotulo)) legenda.setText(aviso ?? rotulo).setColor(aviso ? '#86efac' : '#ffffff');
     const fracao = Math.max(0, Math.min(100, valor)) / 100;
     anel.clear().fillStyle(0x0b1a4a, 0.96).fillCircle(0, 0, raio)
       .lineStyle(Math.max(3, 4 * u), 0xcbd5e1, 0.85).strokeCircle(0, 0, raio);

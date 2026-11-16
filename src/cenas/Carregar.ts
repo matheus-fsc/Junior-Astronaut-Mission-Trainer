@@ -13,6 +13,7 @@ import modelos from '../dados/modulos.json';
 import { carregarRover } from './desenharRover';
 import rotacoesModulos from '../dados/rotacoesModulos.json';
 import bandeiras from '../dados/bandeiras.json';
+import bandeiraMarte from '../dados/bandeira_marte.json';
 import sprite from '../dados/astronauta.json';
 import dadosViagem from '../dados/viagem.json';
 import planetas3d from '../dados/planetas3d.json';
@@ -158,6 +159,8 @@ export class Carregar extends Phaser.Scene {
     this.load.image('foguete_voo', 'lua/modulos/foguete_voo.png');   // launch film and landing (Chegada.ts)
     carregarRover(this.load);   // the Apollo LRV in 16 headings (desenharRover.ts)
     for (const [id, b] of Object.entries(bandeiras)) this.load.image(`bandeira_${id}`, b.arquivo);
+    // The waving Mars flag on the rocket's progress bar (make_bandeira_progresso.py).
+    this.load.spritesheet('bandeira_marte_hud', bandeiraMarte.arquivo, { frameWidth: bandeiraMarte.w, frameHeight: bandeiraMarte.h });
     for (const a of ACESSORIOS) this.load.spritesheet(chaveAcessorio(a.id), a.arquivo, { frameWidth: sprite.frame, frameHeight: sprite.frame });
     // Explorer 3D has no sheets of its own: it uses the commander's (SKINS_SPRITES leaves it out).
     for (const sk of SKINS_SPRITES) this.load.spritesheet(chaveSkin(sk.id), sk.arquivo, { frameWidth: sprite.frame, frameHeight: sprite.frame });

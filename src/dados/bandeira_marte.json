@@ -1,0 +1,11 @@
+{
+  "arquivo": "lua/hud/bandeira_marte.png",
+  "quadros": 12,
+  "w": 96,
+  "h": 72,
+  "ancora": [
+    6.0,
+    6.0
+  ],
+  "alturaPano": 60.0
+}
