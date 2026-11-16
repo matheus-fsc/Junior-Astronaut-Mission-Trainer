@@ -310,11 +310,13 @@ export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: I
     const b = bandeira;
     // The mast stands on the tip of the fill (a little inside the rounded start at 0%).
     b.x = coluna + borda0 + Math.max(alto0 / 2, cheio - px(1));
-    // Under the percentage badge the mast is shorter: the cloth flies between the badge and the
-    // track instead of covering the number.
     const larguraPano = (bandeiraMarte.w - 2 * bandeiraMarte.ancora[0]) * escalaPano;
+    // Under the label text or the badge the mast is shorter: the cloth flies in the gap between the
+    // header and the track instead of hiding behind the word or covering the number.
+    const fimTexto = coluna + label.displayWidth + px(3);
     const sobSelo = b.x + larguraPano > fim - seloW - px(2);
-    const topo = sobSelo ? Math.max(mastroTopo, cabecalhoY + Math.round(seloH / 2) + px(1)) : mastroTopo;
+    const sobTexto = b.x - px(3) < fimTexto;
+    const topo = sobSelo || sobTexto ? Math.max(mastroTopo, cabecalhoY + Math.round(seloH / 2) + px(1)) : mastroTopo;
     b.mastro.clear().lineStyle(Math.max(2, px(3)), 0x0b1a4a).lineBetween(b.x, mastroBase, b.x, topo - px(1))
       .lineStyle(Math.max(1, px(1.4)), 0xffffff).lineBetween(b.x, mastroBase, b.x, topo)
       .fillStyle(0xfde047).fillCircle(b.x, topo - px(1), Math.max(1.5, px(2)));
