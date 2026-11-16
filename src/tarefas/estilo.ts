@@ -256,7 +256,7 @@ export function criarIconeRadiacao(cena: Phaser.Scene, x: number, y: number, tam
   return criarIconeJogo(cena, x, y, 'radiation', tamanho);
 }
 
-// With `chegada` the track is a checkered finish line and a waving Mars flag rides on the tip of
+// With `chegada` the progress fill is a checkered finish line and a waving Mars flag rides on the tip of
 // the progress (the rocket's progress: the race to Mars).
 export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: IconeJogo, rotulo: string, cor: number, chegada = false) {
   // Enlarge every inner measurement together, capped by the available column and row.
@@ -282,26 +282,14 @@ export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: I
     .lineStyle(px(2), 0xffffff).strokeRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2);
   const preenchimento = cena.add.graphics();
   caixa.add([fundo, simbolo, label, selo.caixa, trilho, preenchimento]);
-  // The finish line: the whole track is a black and white checkerboard, covered by the fill as the
-  // rocket gets built. A Mars flag rides on the tip of the fill: at 0% only its mast stands in the
+  // The finish line: the fill itself is a black and white checkerboard growing as the rocket gets
+  // built, over the plain navy track. A Mars flag rides on the tip of the fill: at 0% only its mast stands in the
   // left corner; with the first progress the cloth is hoisted to the top and waves.
   let bandeira: { mastro: Phaser.GameObjects.Graphics; pano?: Phaser.GameObjects.Sprite; x: number; hasteada: boolean } | null = null;
   const borda0 = px(2), alto0 = trilhoH - 2 * borda0;
   const mastroH = px(12), mastroBase = trilhoY + Math.round(trilhoH / 2) - borda0, mastroTopo = trilhoY - Math.round(trilhoH / 2) - mastroH;
   const panoH = Math.max(6, px(8)), escalaPano = panoH / bandeiraMarte.alturaPano;
   if (chegada) {
-    trilho.clear();
-    const q = Math.max(2, alto0 / 2), x0 = coluna + borda0, y0 = trilhoY - alto0 / 2, util = trilhoW - 2 * borda0;
-    trilho.fillStyle(0xffffff).fillRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2)
-      .fillStyle(0x111827).fillRoundedRect(x0, y0, util, alto0, alto0 / 2);
-    // White checks only where the whole square fits inside the rounded track (black shows elsewhere).
-    for (let c = 0; c * q < util; c++) for (let l = 0; l < 2; l++) {
-      if ((c + l) % 2) continue;
-      const sx = x0 + c * q, w = Math.min(q, util - c * q), meio = sx + w / 2 - x0;
-      if (meio < alto0 / 2 || meio > util - alto0 / 2) continue;
-      trilho.fillStyle(0xffffff).fillRect(sx, y0 + l * q, w, q);
-    }
-    trilho.lineStyle(px(2), 0xffffff).strokeRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2);
     const mastro = cena.add.graphics();
     let pano: Phaser.GameObjects.Sprite | undefined;
     if (cena.textures.exists('bandeira_marte_hud')) {
@@ -312,7 +300,7 @@ export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: I
         .setOrigin(bandeiraMarte.ancora[0] / bandeiraMarte.w, bandeiraMarte.ancora[1] / bandeiraMarte.h).setVisible(false);
       if (!movimentoReduzido()) pano.play('bandeira_marte_onda');
     }
-    bandeira = { mastro, pano, x: x0, hasteada: false };
+    bandeira = { mastro, pano, x: coluna + borda0, hasteada: false };
     // In front of the percentage badge (the flag reaches it near the end), behind the label text.
     caixa.add(pano ? [mastro, pano] : [mastro]);
     caixa.bringToTop(label);
@@ -359,7 +347,18 @@ export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: I
     const borda = px(2), a = trilhoH - 2 * borda, util = trilhoW - 2 * borda;
     const cheio = fracao > 0 ? Math.min(util, Math.max(a, Math.round(util * fracao))) : 0;
     preenchimento.clear();
-    if (cheio) preenchimento.fillStyle(corAtual).fillRoundedRect(coluna + borda, trilhoY - a / 2, cheio, a, a / 2)
+    if (cheio && chegada) {
+      // The progress itself is the finish line: black and white checks, two rows, over a white base
+      // (rounded ends stay white). Ready to launch, the white turns green.
+      const q = Math.max(2, a / 2), x0 = coluna + borda, y0 = trilhoY - a / 2;
+      preenchimento.fillStyle(aviso ? 0x4ade80 : 0xffffff).fillRoundedRect(x0, y0, cheio, a, a / 2);
+      for (let c = 0; c * q < cheio; c++) for (let l = 0; l < 2; l++) {
+        if ((c + l) % 2 === 0) continue;
+        const sx = x0 + c * q, w = Math.min(q, cheio - c * q), meio = sx + w / 2 - x0;
+        if (meio < a / 2 || meio > cheio - a / 2) continue;
+        preenchimento.fillStyle(0x111827).fillRect(sx, y0 + l * q, w, q);
+      }
+    } else if (cheio) preenchimento.fillStyle(corAtual).fillRoundedRect(coluna + borda, trilhoY - a / 2, cheio, a, a / 2)
       .fillStyle(0xffffff, 0.3).fillRoundedRect(coluna + borda + a / 3, trilhoY - a / 2 + 1, Math.max(0, cheio - a * 2 / 3), a * 0.3, a * 0.15);
     moverBandeira(cheio);
     selo.texto.setText(`${Math.round(valor)}%`);
