@@ -1523,6 +1523,8 @@ export class Superficie extends Phaser.Scene {
         this.tweens.add({targets:texto,alpha:0,y:fim.y-(movimentoReduzido()?12:32),delay:1800,duration:500,onComplete:()=>texto.destroy()});
       }});
     if(mudou)sessao.emitir('mensagem',`🚀 ${nomes[etapa]} Rocket: ${Math.round(progresso)}%`,'#86efac');
+    // Finished early: it still launches only after the last day, so the crew must hold on until then.
+    if(mudou && etapa===4 && sessao.estado.dia<=sessao.C.dias)this.time.delayedCall(2600,()=>sessao.emitir('mensagem',`Now survive until the end of day ${sessao.C.dias}: the rocket launches after it.`,'#fde047'));
   }
 
   // ---------- random events (engine/eventos.ts) ----------

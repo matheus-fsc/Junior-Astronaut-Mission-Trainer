@@ -50,7 +50,7 @@ const C_ = () => sessao.C;
 export class Interface extends Phaser.Scene {
   private u = 1;
   private tituloHud?: ReturnType<typeof criarTituloHud>;   // none on phones (the round meters take the top)
-  private recursos: { caixa: Phaser.GameObjects.Container; atualizar: (valor: number, cor?: number) => void }[] = [];
+  private recursos: { caixa: Phaser.GameObjects.Container; atualizar: (valor: number, cor?: number, aviso?: string) => void }[] = [];
   private eventoPerdido?: EventoDef;
   private capsula!: { caixa: Phaser.GameObjects.Container; atualizar: (valores: number[]) => void };
   private layout!: ReturnType<typeof calcularLayoutHud>;
@@ -512,7 +512,7 @@ export class Interface extends Phaser.Scene {
     }
     const marte = sessao.mundo === 'marte';
     const descricoes: [IconeJogo, string, number][] = [['oxygen', 'Oxygen', 0x4ade80], ['radiation', 'Radiation', 0xfde047], [marte ? 'wrench' : 'rocket', sessao.cap.nomeMeta, 0x60a5fa]];
-    this.recursos = l.recursos.map((r, i) => movel ? criarIndicadorCircular(this, r, u, ...descricoes[i]) : criarIndicador(this, r, u, ...descricoes[i]));
+    this.recursos = l.recursos.map((r, i) => movel ? criarIndicadorCircular(this, r, u, ...descricoes[i]) : criarIndicador(this, r, u, ...descricoes[i], i === 2 && !marte));
     const menu = criarBotaoPilula(this, l.menu, u, '', () => this.abrirMenu());
     const simbolo = this.add.graphics().lineStyle(Math.max(2, px(2.5)), 0xffffff);
     const cx = Math.round(l.menu.w / 2), cy = Math.round(l.menu.h / 2);
@@ -559,8 +559,13 @@ export class Interface extends Phaser.Scene {
     const valores = [e.oxigenio, e.dose, sessao.mundo==='lua'?sessao.progressoFoguete:e.meta];
     // Oxygen and crew health (100 - dose) warn by color: green above 70, yellow 30 to 70, red below 30.
     const alerta = (v: number) => v > 70 ? 0x4ade80 : v >= 30 ? 0xfde047 : 0xef4444;
-    const cores = [alerta(e.oxigenio), alerta(100 - e.dose), undefined];
-    this.recursos.forEach((r, i) => r.atualizar(valores[i], cores[i]));
+    // The rocket can be finished early, but it only launches after the last day: until then the
+    // crew still has to survive (regras.ts resultado), and the bar says how long.
+    const faltam = C_().dias - e.dia + 1;
+    const pronto = sessao.mundo === 'lua' && sessao.fase === 'dia' && valores[2] >= 100 && faltam > 0;
+    const aviso = pronto ? (faltam > 1 ? `Ready! Survive ${faltam} days` : 'Ready! Last day') : undefined;
+    const cores = [alerta(e.oxigenio), alerta(100 - e.dose), pronto ? 0x4ade80 : undefined];
+    this.recursos.forEach((r, i) => r.atualizar(valores[i], cores[i], i === 2 ? aviso : undefined));
     const d = sessao.entregas;
     // On Mars the last counter is the heating (the dome is built through construction, not powered).
     const contadores = [sessao.noHabitat, sessao.carregando, d.oxigenio, d.blindagem, marte ? d.aquecimento : d.meta];

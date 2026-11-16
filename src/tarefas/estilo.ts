@@ -255,7 +255,9 @@ export function criarIconeRadiacao(cena: Phaser.Scene, x: number, y: number, tam
   return criarIconeJogo(cena, x, y, 'radiation', tamanho);
 }
 
-export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: IconeJogo, rotulo: string, cor: number) {
+// With `chegada` the track ends in a checkered finish line with a little red and white Mars flag
+// (the rocket's progress: the race to Mars).
+export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: IconeJogo, rotulo: string, cor: number, chegada = false) {
   // Enlarge every inner measurement together, capped by the available column and row.
   const ampliacao = Math.max(1, Math.min(1.2, b.w / (220 * u), b.h / (44 * u)));
   const unidade = u * ampliacao;
@@ -274,12 +276,36 @@ export function criarIndicador(cena: Phaser.Scene, b: Caixa, u: number, icone: I
   const selo = criarSelo(cena, fim - seloW, cabecalhoY - Math.round(seloH / 2), seloW, seloH, unidade, cor);
   selo.texto.setFontSize(px(11));
   label.setScale(Math.min(1, (fim - seloW - px(6) - coluna) / label.width));
-  const trilhoH = px(12), trilhoY = Math.round(alto * 0.74), trilhoW = fim - coluna;
+  const bandeiraW = chegada ? px(13) : 0;
+  const trilhoH = px(12), trilhoY = Math.round(alto * 0.74), trilhoW = fim - coluna - bandeiraW;
   const trilho = cena.add.graphics().fillStyle(0x0b1a4a).fillRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2)
     .lineStyle(px(2), 0xffffff).strokeRoundedRect(coluna, trilhoY - trilhoH / 2, trilhoW, trilhoH, trilhoH / 2);
   const preenchimento = cena.add.graphics();
   caixa.add([fundo, simbolo, label, selo.caixa, trilho, preenchimento]);
-  return { caixa, atualizar: (valor: number, corAtual = cor) => {
+  if (chegada) {
+    // Finish line: two rows of checks across the end of the track, over the fill.
+    const linha = cena.add.graphics(), q = Math.max(2, Math.round((trilhoH - px(4)) / 2));
+    const x0 = coluna + trilhoW - px(2) - 3 * q, y0 = trilhoY - q;
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) linha.fillStyle((i + j) % 2 ? 0x0b1a4a : 0xffffff).fillRect(x0 + i * q, y0 + j * q, q, q);
+    linha.lineStyle(px(1.5), 0xffffff).lineBetween(x0, trilhoY - trilhoH / 2 + px(1), x0, trilhoY + trilhoH / 2 - px(1));
+    // The flag: a pole at the end of the track and a waving cloth in red and white stripes.
+    const mastroX = coluna + trilhoW + px(4), base = trilhoY + Math.round(trilhoH / 2), topo = trilhoY - px(11);
+    const panoW = px(9), faixa = Math.max(1, Math.round(px(7) / 4)), panoH = faixa * 4;
+    const bandeira = cena.add.graphics();
+    bandeira.lineStyle(Math.max(2, px(2.5)), 0x0b1a4a).lineBetween(mastroX, base, mastroX, topo - px(1));
+    bandeira.lineStyle(Math.max(1, px(1.2)), 0xffffff).lineBetween(mastroX, base, mastroX, topo - px(1));
+    const onda = (x: number) => Math.round(Math.sin((x / panoW) * Math.PI) * px(1.2));
+    bandeira.fillStyle(0x0b1a4a).fillRect(mastroX, topo - px(1), panoW + px(1), panoH + px(2) + px(1.2));
+    for (let x = 0; x < panoW; x++) for (let k = 0; k < 4; k++) {
+      bandeira.fillStyle(k % 2 ? 0xffffff : 0xef4444).fillRect(mastroX + 1 + x, topo + k * faixa + onda(x), 1, faixa);
+    }
+    caixa.add([linha, bandeira]);
+  }
+  // `aviso` replaces the label (the finished rocket waiting for launch day).
+  const ajustarRotulo = () => label.setScale(1).setScale(Math.min(1, (fim - seloW - px(6) - coluna) / label.width));
+  return { caixa, atualizar: (valor: number, corAtual = cor, aviso?: string) => {
+    const texto = aviso ?? rotulo;
+    if (label.text !== texto) { label.setText(texto).setColor(aviso ? '#86efac' : '#ffffff'); ajustarRotulo(); }
     const fracao = Math.max(0, Math.min(100, valor)) / 100;
     const borda = px(2), a = trilhoH - 2 * borda, util = trilhoW - 2 * borda;
     const cheio = fracao > 0 ? Math.min(util, Math.max(a, Math.round(util * fracao))) : 0;
@@ -303,7 +329,8 @@ export function criarIndicadorCircular(cena: Phaser.Scene, b: Caixa, u: number, 
     fontStyle: '700', stroke: '#0b1a4a', strokeThickness: 2,
   })).setOrigin(0.5);
   caixa.add([anel, simbolo, numero, legenda]);
-  return { caixa, atualizar: (valor: number, corAtual = cor) => {
+  return { caixa, atualizar: (valor: number, corAtual = cor, aviso?: string) => {
+    if (legenda.text !== (aviso ?? rotulo)) legenda.setText(aviso ?? rotulo).setColor(aviso ? '#86efac' : '#ffffff');
     const fracao = Math.max(0, Math.min(100, valor)) / 100;
     anel.clear().fillStyle(0x0b1a4a, 0.96).fillCircle(0, 0, raio)
       .lineStyle(Math.max(3, 4 * u), 0xcbd5e1, 0.85).strokeCircle(0, 0, raio);
